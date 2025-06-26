@@ -1,0 +1,13 @@
+/.venv
+/bin
+/gemini-native-image.png
+/generate_image.py
+/immagini_generate
+/include
+/lib
+/pyvenv.cfg
+/share
+/storia_tartaruga.txt
+/tidal-dl.code-workspace
+/tidal_session.json
+/lib64

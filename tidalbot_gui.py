@@ -232,12 +232,16 @@ class TidalBotGUI(QtWidgets.QMainWindow):
     def handle_finished(self, exit_code, exit_status):
         try:
             self.run_button.setEnabled(True) # Re-enable run button
-            if exit_status == QtWidgets.QProcess.NormalExit:
+            if exit_status == QtCore.QProcess.NormalExit:
                 self.update_status(f"TidalBot completato con codice di uscita: {exit_code}.")
                 self.output_console.append(f"\n--- TidalBot completato (codice di uscita: {exit_code}) ---")
             else:
-                self.update_status(f"TidalBot terminato in modo anomalo (codice: {exit_code}).", is_error=True)
-                self.output_console.append(f"\n--- TidalBot terminato in modo anomalo (codice di uscita: {exit_code}) ---")
+                # Use CrashExit for specific abnormal termination, otherwise just rely on exit_code
+                status_message = "anomalo"
+                if hasattr(QtCore.QProcess, 'CrashExit') and exit_status == QtCore.QProcess.CrashExit:
+                    status_message = "anomalo (crash)"
+                self.update_status(f"TidalBot terminato in modo {status_message} (codice: {exit_code}).", is_error=True)
+                self.output_console.append(f"\n--- TidalBot terminato in modo {status_message} (codice di uscita: {exit_code}) ---")
             self.output_console.verticalScrollBar().setValue(self.output_console.verticalScrollBar().maximum())
         except Exception as e:
             self.output_console.append(f"GUI ERROR in handle_finished: {e}")

@@ -7,6 +7,7 @@ import re # For regex operations in search strategies
 from difflib import SequenceMatcher
 from tqdm import tqdm
 import sys
+sys.stdout.reconfigure(encoding='utf-8') # Configure stdout to use UTF-8
 from fuzzywuzzy import fuzz # For fuzzy matching
 from fuzzywuzzy import process # For fuzzy matching
 import concurrent.futures # For parallel processing

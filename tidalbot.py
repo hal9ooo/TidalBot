@@ -22,18 +22,6 @@ LISTA_CANZONI = """
 Pavel Khvaleev - Connect
 Cherry - Euphoria 
 Armina - Mindstorm 
-David Granha  - Mahuru 
-Matchy  - Unforgotten 
-Double Disco  - Where You Are 
-Miss Monique  - Veselka 
-ChangedFaces  - False Hope 
-Citizen Kain  - Low Blow 
-Weekend Heroes  - Dragonfly 
-Hidden Empire  - Morjim At Night 
-Andrewboy & RAIDON  - Sign 
-Brian Don  - Silo 
-Miss Monique & P.O.U - Million Miles Away 
-Greenjack  - At night
 """
 
 def datetime_serializer(obj):
@@ -241,6 +229,8 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
         'errors': 0
     }
     
+    low_similarity_warnings = [] # To store details of songs with low similarity
+
     with tqdm(total=len(songs_to_add), desc="Processing songs") as pbar:
         for song_line in songs_to_add:
             search_query = song_line.strip()
@@ -252,8 +242,8 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
             
             found_tracks, best_similarity, top_candidates = intelligent_search(session, search_query)
 
-            if top_candidates:
-                print("\n🔎 Top 3 Search Candidates:")
+            if DEBUG_MODE and top_candidates:
+                print("\nDEBUG: Top Search Candidates:")
                 for i, candidate in enumerate(top_candidates):
                     print(f"  {i+1}. Artist: {candidate['artist']}, Title: {candidate['title']}, Album: {candidate['album']}, Year: {candidate['year']}, Similarity: {candidate['similarity']:.2f}")
                 print("-" * 30)
@@ -267,6 +257,22 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
 
                 if best_similarity < SIMILARITY_THRESHOLD:
                     print(f"⚠️ LOW SIMILARITY: Found '{full_title}' with similarity {best_similarity:.2f} for query '{search_query}'. Consider reviewing.\n")
+                    # Get detailed info for the found track to store in the warning
+                    found_artist_name = found_track.artist.name if hasattr(found_track.artist, 'name') else "Unknown Artist"
+                    found_album_title = found_track.album.name if hasattr(found_track, 'album') and hasattr(found_track.album, 'name') else "Unknown Album"
+                    found_release_year = found_track.album.release_date.year if hasattr(found_track, 'album') and hasattr(found_track.album, 'release_date') else "Unknown Year"
+                    found_track_title = found_track.name if hasattr(found_track, 'name') else f"Track ID: {found_track.id}"
+
+                    low_similarity_warnings.append({
+                        'query': search_query,
+                        'found_title': full_title, # Keep full_title for the warning message print
+                        'found_artist': found_artist_name,
+                        'found_track_title': found_track_title,
+                        'found_album': found_album_title,
+                        'found_year': found_release_year,
+                        'similarity': best_similarity,
+                        'candidates': top_candidates
+                    })
 
                 if found_track.id in existing_track_ids:
                     print(f"🟡 ALREADY PRESENT: '{full_title}' is already in the playlist.\n")
@@ -294,6 +300,24 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
    ❌ Not Found: {stats['not_found']}
    🔴 Errors: {stats['errors']}
     """)
+
+    # Print summary of low similarity warnings
+    if low_similarity_warnings:
+        print("\n--- Summary of Low Similarity Warnings ---")
+        for warning in low_similarity_warnings:
+            print(f"\nQuery: '{warning['query']}'")
+            print(f"Found: '{warning['found_title']}' with similarity {warning['similarity']:.2f}")
+            print("Top Search Candidates:")
+            for i, candidate in enumerate(warning['candidates']):
+                # Compare candidate details with found track details for the arrow
+                is_found_candidate = (
+                    candidate['artist'] == warning['found_artist'] and
+                    candidate['title'] == warning['found_track_title'] and
+                    candidate['album'] == warning['found_album'] and
+                    candidate['year'] == warning['found_year']
+                )
+                prefix = "➡️" if is_found_candidate else "  "
+                print(f"{prefix} {i+1}. Artist: {candidate['artist']}, Title: {candidate['title']}, Album: {candidate['album']}, Year: {candidate['year']}, Similarity: {candidate['similarity']:.2f}")
 
 def main():
     """Main function of the script."""

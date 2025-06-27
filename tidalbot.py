@@ -13,10 +13,10 @@ import concurrent.futures # For parallel processing
 
 # --- 1. CONFIGURATION ---
 DEBUG_MODE = True # Set to True to enable debug output, False to disable
-TIDAL_SEARCH_LIMIT = 5 # Number of tracks to retrieve from Tidal API search
+TIDAL_SEARCH_LIMIT = 3 # Number of tracks to retrieve from Tidal API search
 DEBUG_CANDIDATE_LIMIT = 3 # Number of top candidates to show in debug output
 # Define the name of the Tidal playlist to be created or updated.
-NOME_PLAYLIST = "miss monique fuzzy2"
+NOME_PLAYLIST = "Miss Monique - Siona Records: VI Anniversary @ Ibiza 2025 [Progressive House DJ Mix]"
 
 LISTA_CANZONI = """
 Pavel Khvaleev - Connect
@@ -252,8 +252,8 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
             
             found_tracks, best_similarity, top_candidates = intelligent_search(session, search_query)
 
-            if DEBUG_MODE and top_candidates:
-                print("\nDEBUG: Top 3 Search Candidates:")
+            if top_candidates:
+                print("\n🔎 Top 3 Search Candidates:")
                 for i, candidate in enumerate(top_candidates):
                     print(f"  {i+1}. Artist: {candidate['artist']}, Title: {candidate['title']}, Album: {candidate['album']}, Year: {candidate['year']}, Similarity: {candidate['similarity']:.2f}")
                 print("-" * 30)

@@ -129,26 +129,62 @@ class TidalBotGUI(QtWidgets.QMainWindow):
             self.update_status("TidalBot è già in esecuzione. Attendere il completamento.", is_error=True)
             return
 
-        # First, save the current configuration
+        # Always save the configuration before running
         self.save_config()
 
-        self.output_console.clear()
-        self.update_status("Avvio di tidalbot.py...")
-        
-        # Determine the Python executable path
-        # It's good practice to use sys.executable to ensure the correct Python environment is used
-        python_executable = sys.executable 
-        
-        # Start the tidalbot.py script as a new process
-        # Using [python_executable, "tidalbot.py"] ensures it runs with the same python interpreter as the GUI
-        self.process.start(python_executable, ["tidalbot.py"])
+        # Validate configuration directly before running to catch common errors early
+        try:
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                config_check = json.load(f)
+            
+            # Basic validation: check for essential keys and their types
+            if not isinstance(config_check.get('NOME_PLAYLIST'), str):
+                raise ValueError("La chiave 'NOME_PLAYLIST' è mancante o non è una stringa in config.json.")
+            if not isinstance(config_check.get('DEBUG_MODE'), bool):
+                raise ValueError("La chiave 'DEBUG_MODE' è mancante o non è un booleano in config.json.")
+            if not isinstance(config_check.get('TIDAL_SEARCH_LIMIT'), int):
+                raise ValueError("La chiave 'TIDAL_SEARCH_LIMIT' è mancante o non è un intero in config.json.")
+            if not isinstance(config_check.get('DEBUG_CANDIDATE_LIMIT'), int):
+                raise ValueError("La chiave 'DEBUG_CANDIDATE_LIMIT' è mancante o non è un intero in config.json.")
+            if not isinstance(config_check.get('LISTA_CANZONI'), list):
+                raise ValueError("La chiave 'LISTA_CANZONI' è mancante o non è una lista in config.json.")
 
-        if not self.process.waitForStarted(5000): # Wait up to 5 seconds for the process to start
-            self.update_status("Errore nell'avvio di tidalbot.py.", is_error=True)
-            self.output_console.append("Controlla che python e tidalbot.py siano nel PATH e che le dipendenze siano installate.")
-        else:
-            self.update_status("TidalBot avviato con successo.")
-            self.run_button.setEnabled(False) # Disable run button while running
+            self.update_status("Validazione config.json superata. Avvio di tidalbot.py...")
+            self.output_console.clear()
+            
+            # Determine the Python executable path
+            python_executable = sys.executable
+            
+            # Start the tidalbot.py script as a new process
+            self.process.start(python_executable, ["tidalbot.py"])
+
+            if not self.process.waitForStarted(5000): # Wait up to 5 seconds for the process to start
+                self.update_status("Errore nell'avvio di tidalbot.py.", is_error=True)
+                QtWidgets.QMessageBox.critical(self, "Errore Avvio Processo",
+                                               "Impossibile avviare tidalbot.py. "
+                                               "Controlla che Python e tidalbot.py siano nel PATH e che le dipendenze siano installate.")
+            else:
+                self.update_status("TidalBot avviato con successo.")
+                self.run_button.setEnabled(False) # Disable run button while running
+
+        except FileNotFoundError:
+            self.update_status(f"Errore: Il file di configurazione '{CONFIG_FILE}' non è stato trovato.", is_error=True)
+            QtWidgets.QMessageBox.critical(self, "Errore Configurazione",
+                                           f"Il file '{CONFIG_FILE}' è mancante. Assicurati che esista e sia accessibile.")
+        except json.JSONDecodeError as e:
+            self.update_status(f"Errore: Il file '{CONFIG_FILE}' non è un JSON valido: {e}", is_error=True)
+            QtWidgets.QMessageBox.critical(self, "Errore Configurazione JSON",
+                                           f"config.json non è un JSON valido. Errore: {e}\n"
+                                           "Verifica la sintassi del file.")
+        except ValueError as e:
+            self.update_status(f"Errore di validazione configurazione: {e}", is_error=True)
+            QtWidgets.QMessageBox.critical(self, "Errore Validazione Configurazione",
+                                           f"Errore di validazione in config.json: {e}\n"
+                                           "Correggi la configurazione e riprova.")
+        except Exception as e:
+            self.update_status(f"Errore inatteso durante la validazione o l'avvio: {e}", is_error=True)
+            QtWidgets.QMessageBox.critical(self, "Errore Inatteso",
+                                           f"Si è verificato un errore inatteso: {e}")
 
     def handle_stdout(self):
         data = self.process.readAllStandardOutput()

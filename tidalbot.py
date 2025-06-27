@@ -11,38 +11,27 @@ from fuzzywuzzy import fuzz # For fuzzy matching
 from fuzzywuzzy import process # For fuzzy matching
 import concurrent.futures # For parallel processing
 
-# --- 1. CONFIGURATION ---
-DEBUG_MODE = True # Set to True to enable debug output, False to disable
-TIDAL_SEARCH_LIMIT = 3 # Number of tracks to retrieve from Tidal API search
-DEBUG_CANDIDATE_LIMIT = 3 # Number of top candidates to show in debug output
-# Define the name of the Tidal playlist to be created or updated.
-NOME_PLAYLIST = "Massano @ Ribblehead Viaduct (Yorkshire Dales, UK) [Melodic Techno Set 2025]"
+# --- CONFIGURATION LOADING ---
+CONFIG_FILE = 'config.json'
 
-LISTA_CANZONI = """
-Sam Paganini - Rave (Original mix) w/ Faithless - Insomnia (Acappella) 
-ID - ID
-Massano - Falling
-ID - ID
-Disfreq - Lights (ID Remix) 
-ID - ID
-Massano ft. XIRA - Voices 
-ID - ID
-Alphadog - Higher (KASIA Remix) 
-Massano ft. Kali Claire - Over The Edge 
-Arude & David Lindmer - My Mind
-The Chemical Brothers - Do It Again (Massano Remix) 
-PACS - Undress
-Moonphazes - Tabuh
-Anyma & Massano ft. Nathan Nicholson - Angel In The Dark 
-Adam Sellouk & Paradoks - Cloud 9
-Massano & Unsaid ft. RHODES - Lift Me Up 
-Massano & SOEL - Union Of Opposites 
-Massano ft. Braev - Fade Away 
-ID - ID
-Massano - Throwing Stones 
-Massano ft. Noah Kulaga - After The Sun 
-Massano - Who We Are
-"""
+def load_configuration(config_file):
+    """Loads configuration from a JSON file."""
+    if not os.path.exists(config_file):
+        print(f"Errore: Il file di configurazione '{config_file}' non è stato trovato.")
+        sys.exit(1)
+    with open(config_file, 'r', encoding='utf-8') as f:
+        config = json.load(f)
+    print(f"✅ Configurazione caricata da '{config_file}'.")
+    return config
+
+# Load configuration at startup
+config = load_configuration(CONFIG_FILE)
+
+DEBUG_MODE = config.get('DEBUG_MODE', False)
+TIDAL_SEARCH_LIMIT = config.get('TIDAL_SEARCH_LIMIT', 3)
+DEBUG_CANDIDATE_LIMIT = config.get('DEBUG_CANDIDATE_LIMIT', 3)
+NOME_PLAYLIST = config.get('NOME_PLAYLIST', "Rock Power Classics – 100 brani energici")
+LISTA_CANZONI = config.get('LISTA_CANZONI', [])
 
 def datetime_serializer(obj):
     """Serializes datetime objects for JSON output."""
@@ -431,7 +420,7 @@ def main():
         return
 
     # Process the list of songs to add
-    songs_to_add = LISTA_CANZONI.strip().split('\n')
+    songs_to_add = LISTA_CANZONI
 
     # Process songs with progress and statistics
     process_songs_with_progress(session, playlist_target, songs_to_add, existing_track_ids)

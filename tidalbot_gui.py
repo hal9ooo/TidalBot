@@ -197,7 +197,7 @@ class TidalBotGUI(QtWidgets.QMainWindow):
         except Exception as e:
             error_msg = f"Errore durante l'elaborazione dell'output standard: {e}"
             self.output_console.append(f"CRITICAL GUI ERROR: {error_msg}")
-            QtWidgets.QMessageBox.critical(self, "Errore Critico GUI", error_msg)
+            QtWidgets.QMessageBox.critical(self, "Errore Elaborazione Output", f"Errore durante l'elaborazione dell'output standard: {e}")
 
 
     def handle_stderr(self):
@@ -209,9 +209,8 @@ class TidalBotGUI(QtWidgets.QMainWindow):
                 # Auto-scroll to the bottom
                 self.output_console.verticalScrollBar().setValue(self.output_console.verticalScrollBar().maximum())
         except Exception as e:
-            error_msg = f"Errore durante l'elaborazione dell'output di errore: {e}"
-            self.output_console.append(f"CRITICAL GUI ERROR: {error_msg}")
-            QtWidgets.QMessageBox.critical(self, "Errore Critico GUI", error_msg)
+            self.output_console.append(f"GUI ERROR in handle_stderr: {e}")
+            QtWidgets.QMessageBox.critical(self, "Errore Elaborazione Output Errore", f"Errore durante l'elaborazione dell'output di errore: {e}")
 
     def handle_state_changed(self, state):
         try:
@@ -220,9 +219,8 @@ class TidalBotGUI(QtWidgets.QMainWindow):
             elif state == QtCore.QProcess.NotRunning:
                 self.update_status("TidalBot non in esecuzione.")
         except Exception as e:
-            error_msg = f"Errore durante la gestione del cambio di stato del processo: {e}"
-            self.output_console.append(f"CRITICAL GUI ERROR: {error_msg}")
-            QtWidgets.QMessageBox.critical(self, "Errore Critico GUI", error_msg)
+            self.output_console.append(f"GUI ERROR in handle_state_changed: {e}")
+            QtWidgets.QMessageBox.critical(self, "Errore Cambio Stato Processo", f"Errore durante la gestione del cambio di stato del processo: {e}")
 
 
     def handle_finished(self, exit_code, exit_status):
@@ -236,9 +234,8 @@ class TidalBotGUI(QtWidgets.QMainWindow):
                 self.output_console.append(f"\n--- TidalBot terminato in modo anomalo (codice di uscita: {exit_code}) ---")
             self.output_console.verticalScrollBar().setValue(self.output_console.verticalScrollBar().maximum())
         except Exception as e:
-            error_msg = f"Errore durante la gestione della terminazione del processo: {e}"
-            self.output_console.append(f"CRITICAL GUI ERROR: {error_msg}")
-            QtWidgets.QMessageBox.critical(self, "Errore Critico GUI", error_msg)
+            self.output_console.append(f"GUI ERROR in handle_finished: {e}")
+            QtWidgets.QMessageBox.critical(self, "Errore Terminazione Processo", f"Errore durante la gestione della terminazione del processo: {e}")
 
 
     def clear_output(self):
@@ -252,7 +249,15 @@ class TidalBotGUI(QtWidgets.QMainWindow):
             self.status_bar.setStyleSheet("color: black;")
         self.status_bar.showMessage(message)
 
+def excepthook(exc_type, exc_value, exc_traceback):
+    """Global exception handler to show message box for unhandled exceptions."""
+    sys.__excepthook__(exc_type, exc_value, exc_traceback) # Call the default handler
+    error_message = f"Si è verificato un errore non gestito: {exc_type.__name__}: {exc_value}\n" \
+                    f"\nSi prega di segnalare questo problema."
+    QtWidgets.QMessageBox.critical(None, "Errore non Gestito", error_message)
+
 if __name__ == "__main__":
+    sys.excepthook = excepthook # Set the custom exception handler
     app = QtWidgets.QApplication(sys.argv)
     gui = TidalBotGUI()
     gui.show()

@@ -17,11 +17,11 @@ CONFIG_FILE = 'config.json'
 def load_configuration(config_file):
     """Loads configuration from a JSON file."""
     if not os.path.exists(config_file):
-        print(f"Errore: Il file di configurazione '{config_file}' non è stato trovato.")
+        print(f"ERRORE: Il file di configurazione '{config_file}' non è stato trovato.")
         sys.exit(1)
     with open(config_file, 'r', encoding='utf-8') as f:
         config = json.load(f)
-    print(f"✅ Configurazione caricata da '{config_file}'.")
+    print(f"[OK] Configurazione caricata da '{config_file}'.")
     return config
 
 # Load configuration at startup
@@ -225,14 +225,14 @@ def find_or_create_playlist(session, playlist_name):
         user_playlists = session.user.playlists()
         for p in user_playlists:
             if p.name == playlist_name:
-                print(f"✅ Playlist '{playlist_name}' found.")
+                print(f"[OK] Playlist '{playlist_name}' found.")
                 return p
         
         # If the loop finishes, the playlist was not found
-        print(f"⚠️ Playlist '{playlist_name}' not found. Creating it now...")
+        print(f"[WARN] Playlist '{playlist_name}' not found. Creating it now...")
         description = "Playlist automatically created with a Python script."
         new_playlist = session.user.create_playlist(playlist_name, description)
-        print(f"✅ Playlist '{playlist_name}' created successfully.")
+        print(f"[OK] Playlist '{playlist_name}' created successfully.")
         return new_playlist
 
     except Exception as e:
@@ -295,19 +295,19 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
                     })
 
                 if found_track.id in existing_track_ids:
-                    print(f"🟡 ALREADY PRESENT: '{full_title}' is already in the playlist.\n")
+                    print(f"[SKIP] ALREADY PRESENT: '{full_title}' is already in the playlist.\n")
                     stats['duplicate'] += 1
                 else:
                     try:
                         playlist_target.add([found_track.id])
                         existing_track_ids.add(found_track.id)
-                        print(f"🟢 ADDED: '{full_title}' to playlist '{NOME_PLAYLIST}'.\n")
+                        print(f"[ADD] ADDED: '{full_title}' to playlist '{NOME_PLAYLIST}'.\n")
                         stats['added'] += 1
                     except Exception as e:
-                        print(f"🔴 ADDITION ERROR: Could not add '{full_title}'. Error: {e}\n")
+                        print(f"[ERR] ADDITION ERROR: Could not add '{full_title}'. Error: {e}\n")
                         stats['errors'] += 1
             else:
-                print(f"🔴 NOT FOUND: No song found for '{search_query}'.\n")
+                print(f"[ERR] NOT FOUND: No song found for '{search_query}'.\n")
                 stats['not_found'] += 1
                 not_found_warnings.append(search_query)
             
@@ -315,12 +315,12 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
             time.sleep(1)
     
     print(f"""
-📊 Final Statistics:
-   ✅ Added: {stats['added']}
-   🟡 Duplicate: {stats['duplicate']}
-   ❌ Not Found: {stats['not_found']}
-   🔴 Errors: {stats['errors']}
-    """)
+--- Final Statistics ---
+   ADDED: {stats['added']}
+   DUPLICATE: {stats['duplicate']}
+   NOT FOUND: {stats['not_found']}
+   ERRORS: {stats['errors']}
+     """)
 
     # Print summary of low similarity warnings
     if low_similarity_warnings:
@@ -337,16 +337,14 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
                     candidate['album'] == warning['found_album'] and
                     candidate['year'] == warning['found_year']
                 )
-                prefix = "➡️" if is_found_candidate else "  "
-                print(f"{prefix} {i+1}. Artist: {candidate['artist']}, Title: {candidate['title']}, Album: {candidate['album']}, Year: {candidate['year']}, Similarity: {candidate['similarity']:.2f}")
-
+                prefix = "->" if is_found_candidate else "  "
                 print(f"{prefix} {i+1}. Artist: {candidate['artist']}, Title: {candidate['title']}, Album: {candidate['album']}, Year: {candidate['year']}, Similarity: {candidate['similarity']:.2f}")
 
     # Print summary of not found songs
     if not_found_warnings:
         print("\n--- Summary of Not Found Songs ---")
         for i, query in enumerate(not_found_warnings):
-            print(f"{i+1}. 🔴 NOT FOUND: No song found for '{query}'.")
+            print(f"{i+1}. [ERR] NOT FOUND: No song found for '{query}'.")
 
 def main():
     """Main function of the script."""
@@ -370,25 +368,25 @@ def main():
             )
             
             if success:
-                print("✅ Tidal session loaded successfully.")
+                print("[OK] Tidal session loaded successfully.")
             else:
-                print("⚠️ Session expired, new authentication required...")
+                print("[WARN] Session expired, new authentication required...")
                 raise Exception("Session expired")
         else:
             raise FileNotFoundError("No session file found")
             
     except (FileNotFoundError, Exception):
-        print("➡️ Starting authentication process...")
+        print("--- Starting authentication process ---")
         # Perform simple OAuth login
         session.login_oauth_simple()
         
         # Save the new session
         save_session(session, session_file)
-        print("✅ Authentication completed and session saved.")
+        print("[OK] Authentication completed and session saved.")
     
     # Verify successful login
     if not session.check_login():
-        print("❌ Login failed")
+        print("[ERR] Login failed")
         return
         
     print("-" * 40)
@@ -425,7 +423,7 @@ def main():
     # Process songs with progress and statistics
     process_songs_with_progress(session, playlist_target, songs_to_add, existing_track_ids)
 
-    print("✅ Operation completed.")
+    print("[OK] Operation completed.")
 
 if __name__ == "__main__":
     main()

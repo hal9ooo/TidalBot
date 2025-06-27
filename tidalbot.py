@@ -16,12 +16,32 @@ DEBUG_MODE = True # Set to True to enable debug output, False to disable
 TIDAL_SEARCH_LIMIT = 3 # Number of tracks to retrieve from Tidal API search
 DEBUG_CANDIDATE_LIMIT = 3 # Number of top candidates to show in debug output
 # Define the name of the Tidal playlist to be created or updated.
-NOME_PLAYLIST = "Miss Monique - Siona Records: VI Anniversary @ Ibiza 2025 [Progressive House DJ Mix]"
+NOME_PLAYLIST = "Massano @ Ribblehead Viaduct (Yorkshire Dales, UK) [Melodic Techno Set 2025]"
 
 LISTA_CANZONI = """
-Pavel Khvaleev - Connect
-Cherry - Euphoria 
-Armina - Mindstorm 
+Sam Paganini - Rave (Original mix) w/ Faithless - Insomnia (Acappella) 
+ID - ID
+Massano - Falling
+ID - ID
+Disfreq - Lights (ID Remix) 
+ID - ID
+Massano ft. XIRA - Voices 
+ID - ID
+Alphadog - Higher (KASIA Remix) 
+Massano ft. Kali Claire - Over The Edge 
+Arude & David Lindmer - My Mind
+The Chemical Brothers - Do It Again (Massano Remix) 
+PACS - Undress
+Moonphazes - Tabuh
+Anyma & Massano ft. Nathan Nicholson - Angel In The Dark 
+Adam Sellouk & Paradoks - Cloud 9
+Massano & Unsaid ft. RHODES - Lift Me Up 
+Massano & SOEL - Union Of Opposites 
+Massano ft. Braev - Fade Away 
+ID - ID
+Massano - Throwing Stones 
+Massano ft. Noah Kulaga - After The Sun 
+Massano - Who We Are
 """
 
 def datetime_serializer(obj):
@@ -103,7 +123,7 @@ def calculate_similarity_score(query, track_title, track_artist):
     # These weights can be fine-tuned based on testing.
     weighted_score = (full_match_similarity * 0.7) + (title_similarity * 0.2) + (artist_similarity * 0.1)
     
-    if DEBUG_MODE: print(f"DEBUG: Query: '{query_lower}'")
+    if DEBUG_MODE: print(f"\nDEBUG: Query: '{query_lower}'")
     if DEBUG_MODE: print(f"DEBUG: Target: '{target_string}'")
     if DEBUG_MODE: print(f"DEBUG: Full Match Similarity (fuzz.token_sort_ratio): {full_match_similarity:.2f}")
     if DEBUG_MODE: print(f"DEBUG: Title Similarity (SequenceMatcher): {title_similarity:.2f}")
@@ -142,7 +162,7 @@ def intelligent_search(session, query, max_results=3):
     # Check cache first
     cache_key = query.lower().strip()
     if cache_key in search_cache:
-        return search_cache[cache_key]
+        return search_cache[cache_key] # Now returns (results, best_similarity, top_candidates)
 
     strategies = [
         query,  # Original query
@@ -150,6 +170,7 @@ def intelligent_search(session, query, max_results=3):
         " ".join(query.split(" - ")[::-1]) if " - " in query else query,  # Inverted
         re.sub(r'\([^)]*\)', '', query).strip(),  # Remove parentheses and their content
         re.sub(r'(?i)(remix|edit|version|mix|remaster|remastered).*$', '', query).strip(),  # Remove common suffixes
+        re.sub(r'(?i)\s*(ft\.|feat\.|featuring)\s*.*$', '', query).strip(), # Remove featuring artists
         # Simplified strategies to reduce false positives
         # query.split(" - ")[0] if " - " in query else query,  # Removed: Just the artist
         # query.split(" - ")[1] if " - " in query and len(query.split(" - ")) > 1 else query,  # Removed: Just the title
@@ -157,7 +178,8 @@ def intelligent_search(session, query, max_results=3):
     ]
     
     unique_results = {}
-    
+    top_candidates = [] # Initialize top_candidates here
+
     for strategy in strategies:
         tracks = search_track(session, strategy)
         for track in tracks[:max_results]:
@@ -170,8 +192,19 @@ def intelligent_search(session, query, max_results=3):
                 
                 # Early termination if we find a near-perfect match (above 0.95 similarity)
                 if similarity > 0.95:
+                    # Construct top_candidates for early return
+                    artist_name = track.artist.name if hasattr(track.artist, 'name') else "Unknown Artist"
+                    album_title = track.album.name if hasattr(track, 'album') and hasattr(track.album, 'name') else "Unknown Album"
+                    release_year = track.album.release_date.year if hasattr(track, 'album') and hasattr(track.album, 'release_date') else "Unknown Year"
+                    early_top_candidates = [{
+                        'artist': artist_name,
+                        'title': track.name if hasattr(track, 'name') else f"Track ID: {track.id}",
+                        'album': album_title,
+                        'year': release_year,
+                        'similarity': similarity
+                    }]
                     search_cache[cache_key] = ([track], similarity) # Store both track and similarity
-                    return [track], similarity
+                    return [track], similarity, early_top_candidates
     
     # Sort by similarity score
     sorted_results = sorted(unique_results.values(), key=lambda x: x[1], reverse=True)
@@ -181,10 +214,7 @@ def intelligent_search(session, query, max_results=3):
     best_similarity = sorted_results[0][1] if sorted_results else 0.0
 
     results = [track for track, _ in sorted_results]
-    search_cache[cache_key] = (results, best_similarity) # Store both tracks and best similarity
-    
-    # Return the top candidates for debugging based on DEBUG_CANDIDATE_LIMIT
-    top_candidates = []
+    # Populate top_candidates for the main return path
     for track, score in sorted_results[:DEBUG_CANDIDATE_LIMIT]:
         artist_name = track.artist.name if hasattr(track.artist, 'name') else "Unknown Artist"
         album_title = track.album.name if hasattr(track, 'album') and hasattr(track.album, 'name') else "Unknown Album"
@@ -230,6 +260,7 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
     }
     
     low_similarity_warnings = [] # To store details of songs with low similarity
+    not_found_warnings = [] # To store details of songs not found
 
     with tqdm(total=len(songs_to_add), desc="Processing songs") as pbar:
         for song_line in songs_to_add:
@@ -289,6 +320,7 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
             else:
                 print(f"🔴 NOT FOUND: No song found for '{search_query}'.\n")
                 stats['not_found'] += 1
+                not_found_warnings.append(search_query)
             
             pbar.update(1)
             time.sleep(1)
@@ -319,8 +351,19 @@ def process_songs_with_progress(session, playlist_target, songs_to_add, existing
                 prefix = "➡️" if is_found_candidate else "  "
                 print(f"{prefix} {i+1}. Artist: {candidate['artist']}, Title: {candidate['title']}, Album: {candidate['album']}, Year: {candidate['year']}, Similarity: {candidate['similarity']:.2f}")
 
+                print(f"{prefix} {i+1}. Artist: {candidate['artist']}, Title: {candidate['title']}, Album: {candidate['album']}, Year: {candidate['year']}, Similarity: {candidate['similarity']:.2f}")
+
+    # Print summary of not found songs
+    if not_found_warnings:
+        print("\n--- Summary of Not Found Songs ---")
+        for i, query in enumerate(not_found_warnings):
+            print(f"{i+1}. 🔴 NOT FOUND: No song found for '{query}'.")
+
 def main():
     """Main function of the script."""
+    # Clear the search cache at the start of each run
+    search_cache.clear()
+
     # --- 2. AUTHENTICATION ---
     # Initialize Tidal session
     session = tidalapi.Session()

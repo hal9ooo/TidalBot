@@ -155,6 +155,12 @@ class TidalBotGUI(QtWidgets.QMainWindow):
             # Determine the Python executable path
             python_executable = sys.executable
             
+            # Set PYTHONUNBUFFERED environment variable to force unbuffered output from the child process
+            # This ensures that stdout/stderr is flushed immediately, making it visible in the GUI console
+            environment = QtCore.QProcessEnvironment.systemEnvironment()
+            environment.insert("PYTHONUNBUFFERED", "1")
+            self.process.setProcessEnvironment(environment)
+
             # Start the tidalbot.py script as a new process
             self.process.start(python_executable, ["tidalbot.py"])
 

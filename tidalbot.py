@@ -231,7 +231,7 @@ def find_or_create_playlist(session, playlist_name):
         
         # If the loop finishes, the playlist was not found
         print(f"[WARN] Playlist '{playlist_name}' not found. Creating it now...")
-        description = "Playlist automatically created with a Python script."
+        description = "Playlist automatically created with a Python script, see https://github.com/hal9ooo/TidalBot"
         new_playlist = session.user.create_playlist(playlist_name, description)
         print(f"[OK] Playlist '{playlist_name}' created successfully.")
         return new_playlist

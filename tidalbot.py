@@ -2,19 +2,20 @@ import tidalapi
 import os
 import time
 import json
-import sys
-import re
 from datetime import datetime
+import re # For regex operations in search strategies
 from difflib import SequenceMatcher
 from tqdm import tqdm
-from fuzzywuzzy import fuzz
+import sys
+sys.stdout.reconfigure(encoding='utf-8') # Configure stdout to use UTF-8
+from fuzzywuzzy import fuzz # For fuzzy matching
+from fuzzywuzzy import process # For fuzzy matching
+import concurrent.futures # For parallel processing
 
-# --- CONSTANTS ---
+# --- CONFIGURATION LOADING ---
 CONFIG_FILE = 'config.json'
-SESSION_FILE = 'tidal_session.json'
 
-# --- CONFIGURATION ---
-def load_config(config_file):
+def load_configuration(config_file):
     """Loads configuration from a JSON file."""
     if not os.path.exists(config_file):
         print(f"ERROR: Configuration file '{config_file}' not found.")
@@ -25,15 +26,14 @@ def load_config(config_file):
     return config
 
 # Load configuration at startup
-config = load_config(CONFIG_FILE)
+config = load_configuration(CONFIG_FILE)
+
 DEBUG_MODE = config.get('DEBUG_MODE', False)
 TIDAL_SEARCH_LIMIT = config.get('TIDAL_SEARCH_LIMIT', 3)
 DEBUG_CANDIDATE_LIMIT = config.get('DEBUG_CANDIDATE_LIMIT', 3)
-PLAYLIST_NAME = config.get('PLAYLIST_NAME', "Default Playlist Name")
+PLAYLIST_NAME = config.get('PLAYLIST_NAME', "Rock Power Classics – 100 energetic tracks")
 SONG_LIST = config.get('SONG_LIST', [])
-SIMILARITY_THRESHOLD = config.get('SIMILARITY_THRESHOLD', 0.75)
 
-# --- SESSION MANAGEMENT ---
 def datetime_serializer(obj):
     """Serializes datetime objects for JSON output."""
     if isinstance(obj, datetime):
@@ -41,90 +41,56 @@ def datetime_serializer(obj):
     raise TypeError('Type not serializable')
 
 def save_session(session, session_file):
-    """
-    Saves session tokens to a JSON file.
-    WARNING: This file contains sensitive access tokens.
-    Ensure it is stored in a secure location.
-    """
+    """Saves session tokens to a JSON file."""
     token_data = {
         'token_type': session.token_type,
         'access_token': session.access_token,
         'refresh_token': session.refresh_token,
         'expiry_time': session.expiry_time
     }
+    
     with open(session_file, 'w') as f:
         json.dump(token_data, f, default=datetime_serializer)
 
-def load_session_from_file(session_file):
+def load_session(session_file):
     """Loads session tokens from a JSON file."""
     with open(session_file, 'r') as f:
         token_data = json.load(f)
     
-    if isinstance(token_data.get('expiry_time'), str):
+    # Convert expiry_time string to datetime if necessary
+    if isinstance(token_data['expiry_time'], str):
         try:
             token_data['expiry_time'] = datetime.fromisoformat(token_data['expiry_time'])
         except ValueError:
-            pass # Keep it as a string if parsing fails
+            pass
+    
     return token_data
 
-def authenticate_session():
-    """Handles the Tidal authentication process, loading or creating a session."""
-    session = tidalapi.Session()
-    
-    if os.path.exists(SESSION_FILE):
-        try:
-            token_data = load_session_from_file(SESSION_FILE)
-            is_loaded = session.load_oauth_session(
-                token_data['token_type'],
-                token_data['access_token'],
-                token_data['refresh_token'],
-                token_data['expiry_time']
-            )
-            if is_loaded and session.check_login():
-                print("[OK] Tidal session loaded successfully.")
-                return session
-            print("[WARN] Session expired or invalid. New authentication required.")
-        except (json.JSONDecodeError, KeyError) as e:
-            print(f"[WARN] Could not load session file due to error: {e}. Re-authenticating.")
-
-    print("--- Starting new authentication process ---")
-    session.login_oauth_simple()
-    if session.check_login():
-        save_session(session, SESSION_FILE)
-        print("[OK] Authentication successful and session saved.")
-        return session
-    
-    print("[ERROR] Login failed.")
-    sys.exit(1)
-
-
-# --- TRACK & PLAYLIST HELPERS ---
-def get_full_track_title(track):
-    """Creates a standardized full title for a track (Artist - Title)."""
-    artist_name = getattr(track.artist, 'name', "Unknown Artist")
-    track_name = getattr(track, 'name', f"Unknown Title (ID: {track.id})")
-    return f"{artist_name} - {track_name}"
-
-def find_or_create_playlist(session, playlist_name):
-    """Searches for a playlist by name. If not found, creates it."""
+def get_full_track_title(session, track):
+    """Creates a full title for the track, including the artist.
+    If track object is incomplete, fetches full track details using session.
+    """
     try:
-        user_playlists = session.user.playlists()
-        for p in user_playlists:
-            if p.name == playlist_name:
-                print(f"[OK] Playlist '{playlist_name}' found.")
-                return p
-        
-        print(f"[INFO] Playlist '{playlist_name}' not found. Creating it...")
-        description = "Playlist automatically created by TidalBot script."
-        new_playlist = session.user.create_playlist(playlist_name, description)
-        print(f"[OK] Playlist '{playlist_name}' created successfully.")
-        return new_playlist
-    except Exception as e:
-        print(f"❌ ERROR: Could not manage playlist: {e}")
-        return None
+        # Check if essential attributes are missing or if the title is 'Unknown Title' from a previous fallback
+        if not hasattr(track, 'name') or not hasattr(track, 'artist') or not hasattr(track.artist, 'name'):
+            if DEBUG_MODE: print(f"DEBUG: Incomplete track object. Attempting to fetch full details for ID: {track.id}")
+            full_track = session.track(track.id) # Corrected method: session.track
+            if full_track:
+                track = full_track # Use the complete track object
+                if DEBUG_MODE: print(f"DEBUG: Successfully fetched full track details for ID: {track.id}")
+                if DEBUG_MODE: print(f"DEBUG: Full track object details: {track.__dict__}") # Added for full response
+            else:
+                if DEBUG_MODE: print(f"DEBUG: Failed to fetch full track details for ID: {track.id}")
+                # Fallback if fetching fails
+                artist_name = track.artist.name if hasattr(track, 'artist') and hasattr(track.artist, 'name') else "Unknown Artist"
+                return f"{artist_name} - {track.name if hasattr(track, 'name') else f'Unknown Title (ID: {track.id})'}"
 
-# --- SEARCH & SIMILARITY LOGIC ---
-search_cache = {}
+        artist_name = track.artist.name if hasattr(track.artist, 'name') else "Unknown Artist"
+        return f"{artist_name} - {track.name}"
+    except Exception as e:
+        if DEBUG_MODE: print(f"DEBUG: Error getting full track title for track ID {track.id if hasattr(track, 'id') else 'N/A'}: {e}")
+        if DEBUG_MODE: print(f"DEBUG: Track object details: {track.__dict__ if hasattr(track, '__dict__') else track}")
+        return f"{track.name if hasattr(track, 'name') else f'Track ID: {track.id if hasattr(track, 'id') else 'N/A'}'}"
 
 def calculate_similarity_score(query, track_title, track_artist):
     """Calculates a weighted similarity score for a track."""
@@ -132,181 +98,333 @@ def calculate_similarity_score(query, track_title, track_artist):
     title_lower = track_title.lower()
     artist_lower = track_artist.lower()
     
+    # Construct the target string for comparison
     target_string = f"{artist_lower} - {title_lower}"
     
-    # Use fuzzywuzzy's token_sort_ratio for robustness to word order.
-    full_match_similarity = fuzz.token_sort_ratio(query_lower, target_string) / 100.0
+    # Use fuzzywuzzy's token_sort_ratio for the main full title similarity
+    # This is generally robust to word order and minor differences
+    full_match_similarity = fuzz.token_sort_ratio(query_lower, target_string) / 100
     
-    # Use SequenceMatcher for more direct title and artist comparison.
+    # Keep individual title and artist similarities using SequenceMatcher for precision
     title_similarity = SequenceMatcher(None, query_lower, title_lower).ratio()
     artist_similarity = SequenceMatcher(None, query_lower, artist_lower).ratio()
     
-    # Weighted average. The full match is most important.
+    # Adjust weights. Prioritize the full match, then title, then artist.
+    # These weights can be fine-tuned based on testing.
     weighted_score = (full_match_similarity * 0.7) + (title_similarity * 0.2) + (artist_similarity * 0.1)
     
-    if DEBUG_MODE:
-        print(f"\nDEBUG: Query: '{query_lower}'")
-        print(f"DEBUG: Target: '{target_string}'")
-        print(f"DEBUG: Full Match (fuzz): {full_match_similarity:.2f}, Title: {title_similarity:.2f}, Artist: {artist_similarity:.2f}")
-        print(f"DEBUG: Weighted Score: {weighted_score:.2f}")
+    if DEBUG_MODE: print(f"\nDEBUG: Query: '{query_lower}'")
+    if DEBUG_MODE: print(f"DEBUG: Target: '{target_string}'")
+    if DEBUG_MODE: print(f"DEBUG: Full Match Similarity (fuzz.token_sort_ratio): {full_match_similarity:.2f}")
+    if DEBUG_MODE: print(f"DEBUG: Title Similarity (SequenceMatcher): {title_similarity:.2f}")
+    if DEBUG_MODE: print(f"DEBUG: Artist Similarity (SequenceMatcher): {artist_similarity:.2f}")
+    if DEBUG_MODE: print(f"DEBUG: Weighted Score: {weighted_score:.2f}")
     
     return weighted_score
 
-def intelligent_search(session, query):
-    """Searches with multiple strategies and ranks results by similarity."""
+# Cache for search results
+search_cache = {}
+
+def search_track(session, query):
+    """Searches for a track using different available methods."""
+    search_methods = [
+        lambda: session.search('tracks', query, limit=TIDAL_SEARCH_LIMIT),
+        lambda: session.search(query, limit=TIDAL_SEARCH_LIMIT)
+    ]
+    
+    for method in search_methods:
+        try:
+            result = method()
+            # Handle different response formats
+            if isinstance(result, dict) and 'tracks' in result:
+                return result['tracks']
+            elif hasattr(result, '__iter__') and not isinstance(result, str):
+                return list(result)
+            else:
+                return [result] if result else []
+        except (ValueError, AttributeError, TypeError):
+            continue
+    
+    return []
+
+def intelligent_search(session, query, max_results=3):
+    """Searches with multiple strategies and ranks results."""
+    # Check cache first
     cache_key = query.lower().strip()
     if cache_key in search_cache:
-        return search_cache[cache_key]
+        return search_cache[cache_key] # Now returns (results, best_similarity, top_candidates)
 
     strategies = [
-        query,
-        query.replace(" - ", " "),
-        " ".join(query.split(" - ")[::-1]) if " - " in query else query,
-        re.sub(r'\([^)]*\)', '', query).strip(),
-        re.sub(r'(?i)(remix|edit|version|mix|remaster|remastered).*$', '', query).strip(),
-        re.sub(r'(?i)\s*(ft\.|feat\.|featuring)\s*.*$', '', query).strip(),
+        query,  # Original query
+        query.replace(" - ", " "),  # Without separator
+        " ".join(query.split(" - ")[::-1]) if " - " in query else query,  # Inverted
+        re.sub(r'\([^)]*\)', '', query).strip(),  # Remove parentheses and their content
+        re.sub(r'(?i)(remix|edit|version|mix|remaster|remastered).*$', '', query).strip(),  # Remove common suffixes
+        re.sub(r'(?i)\s*(ft\.|feat\.|featuring)\s*.*$', '', query).strip(), # Remove featuring artists
+        # Simplified strategies to reduce false positives
+        # query.split(" - ")[0] if " - " in query else query,  # Removed: Just the artist
+        # query.split(" - ")[1] if " - " in query and len(query.split(" - ")) > 1 else query,  # Removed: Just the title
+        # re.sub(r'(?i)(\bft\.|\bfeat\.|\bfeatures\b|\bfeaturing\b).*$', '', query).strip()  # Removed: Remove featuring artists
     ]
     
     unique_results = {}
-    for strategy in set(strategies): # Use set to avoid duplicate searches
-        if not strategy: continue
-        try:
-            tracks = session.search('track', strategy, limit=TIDAL_SEARCH_LIMIT).get('tracks', [])
-            for track in tracks:
-                if track.id not in unique_results:
-                    full_title = get_full_track_title(track)
-                    artist_name = getattr(track.artist, 'name', "")
-                    similarity = calculate_similarity_score(query, full_title, artist_name)
-                    unique_results[track.id] = (track, similarity)
-        except Exception as e:
-            if DEBUG_MODE: print(f"DEBUG: Search strategy '{strategy}' failed: {e}")
+    top_candidates = [] # Initialize top_candidates here
 
-    if not unique_results:
-        return [], 0.0, []
-
+    for strategy in strategies:
+        tracks = search_track(session, strategy)
+        for track in tracks[:max_results]:
+            if track.id not in unique_results:
+                # Calculate similarity score
+                full_title = get_full_track_title(session, track) # Pass session here
+                artist_name = track.artist.name if hasattr(track.artist, 'name') else ""
+                similarity = calculate_similarity_score(query, full_title, artist_name)
+                unique_results[track.id] = (track, similarity)
+                
+                # Early termination if we find a near-perfect match (above 0.95 similarity)
+                if similarity > 0.95:
+                    # Construct top_candidates for early return
+                    artist_name = track.artist.name if hasattr(track.artist, 'name') else "Unknown Artist"
+                    album_title = track.album.name if hasattr(track, 'album') and hasattr(track.album, 'name') else "Unknown Album"
+                    release_year = track.album.release_date.year if hasattr(track, 'album') and hasattr(track.album, 'release_date') else "Unknown Year"
+                    early_top_candidates = [{
+                        'artist': artist_name,
+                        'title': track.name if hasattr(track, 'name') else f"Track ID: {track.id}",
+                        'album': album_title,
+                        'year': release_year,
+                        'similarity': similarity
+                    }]
+                    search_cache[cache_key] = ([track], similarity) # Store both track and similarity
+                    return [track], similarity, early_top_candidates
+    
+    # Sort by similarity score
     sorted_results = sorted(unique_results.values(), key=lambda x: x[1], reverse=True)
     
-    best_similarity = sorted_results[0][1]
-    top_tracks = [track for track, _ in sorted_results]
-    
-    top_candidates = []
+    # Get the best track and its similarity
+    best_track = sorted_results[0][0] if sorted_results else None
+    best_similarity = sorted_results[0][1] if sorted_results else 0.0
+
+    results = [track for track, _ in sorted_results]
+    # Populate top_candidates for the main return path
     for track, score in sorted_results[:DEBUG_CANDIDATE_LIMIT]:
+        artist_name = track.artist.name if hasattr(track.artist, 'name') else "Unknown Artist"
+        album_title = track.album.name if hasattr(track, 'album') and hasattr(track.album, 'name') else "Unknown Album"
+        release_year = track.album.release_date.year if hasattr(track, 'album') and hasattr(track.album, 'release_date') else "Unknown Year"
         top_candidates.append({
-            'artist': getattr(track.artist, 'name', "N/A"),
-            'title': getattr(track, 'name', "N/A"),
-            'album': getattr(track.album, 'name', "N/A"),
-            'year': getattr(track.album, 'release_date', "N/A"),
+            'artist': artist_name,
+            'title': track.name if hasattr(track, 'name') else f"Track ID: {track.id}",
+            'album': album_title,
+            'year': release_year,
             'similarity': score
         })
     
-    search_cache[cache_key] = (top_tracks, best_similarity, top_candidates)
-    return top_tracks, best_similarity, top_candidates
+    return results, best_similarity, top_candidates
 
-# --- SONG PROCESSING ---
-def process_song(session, query, playlist, existing_track_ids, stats, warnings):
-    """Finds a single song and adds it to the playlist if appropriate."""
-    found_tracks, best_similarity, top_candidates = intelligent_search(session, query)
-
-    if DEBUG_MODE and top_candidates:
-        print("\nDEBUG: Top Search Candidates:")
-        for i, c in enumerate(top_candidates):
-            print(f"  {i+1}. {c['artist']} - {c['title']} (Album: {c['album']}, Sim: {c['similarity']:.2f})")
-        print("-" * 30)
-
-    if not found_tracks:
-        print(f"[FAIL] NOT FOUND: No song found for '{query}'.\n")
-        stats['not_found'] += 1
-        warnings['not_found'].append(query)
-        return
-
-    best_track = found_tracks[0]
-    full_title = get_full_track_title(best_track)
-
-    if best_similarity < SIMILARITY_THRESHOLD:
-        print(f"⚠️ LOW SIMILARITY: Found '{full_title}' with score {best_similarity:.2f} for query '{query}'.\n")
-        warnings['low_similarity'].append({
-            'query': query,
-            'found_title': full_title,
-            'similarity': best_similarity,
-            'candidates': top_candidates
-        })
-
-    if best_track.id in existing_track_ids:
-        print(f"[SKIP] DUPLICATE: '{full_title}' is already in the playlist.\n")
-        stats['duplicate'] += 1
-    else:
-        try:
-            playlist.add([best_track.id])
-            existing_track_ids.add(best_track.id)
-            print(f"[OK] ADDED: '{full_title}' to playlist '{PLAYLIST_NAME}'.\n")
-            stats['added'] += 1
-        except Exception as e:
-            print(f"[FAIL] ADD ERROR: Could not add '{full_title}'. Error: {e}\n")
-            stats['errors'] += 1
-
-def print_summary(stats, warnings):
-    """Prints a final summary of the operations."""
-    print("\n" + "--- Final Statistics ---")
-    print(f"   ADDED: {stats['added']}")
-    print(f"   DUPLICATES (SKIPPED): {stats['duplicate']}")
-    print(f"   NOT FOUND: {stats['not_found']}")
-    print(f"   ERRORS: {stats['errors']}")
-    print("-" * 24)
-
-    if warnings['low_similarity']:
-        print("\n--- Summary of Low Similarity Warnings ---")
-        for warn in warnings['low_similarity']:
-            print(f"\nQuery: '{warn['query']}'")
-            print(f"  -> Found: '{warn['found_title']}' (Similarity: {warn['similarity']:.2f})")
-            for i, c in enumerate(warn['candidates']):
-                print(f"     {i+1}. {c['artist']} - {c['title']} (Sim: {c['similarity']:.2f})")
-
-    if warnings['not_found']:
-        print("\n--- Summary of Not Found Songs ---")
-        for i, query in enumerate(warnings['not_found']):
-            print(f"{i+1}. {query}")
-
-# --- MAIN EXECUTION ---
-def main():
-    """Main function of the script."""
-    sys.stdout.reconfigure(encoding='utf-8')
-    search_cache.clear()
-
-    session = authenticate_session()
-    
-    print("-" * 40)
-    print(f"Logged in as: {getattr(session.user, 'username', f'User ID: {session.user.id}')}")
-    print("-" * 40)
-
-    playlist = find_or_create_playlist(session, PLAYLIST_NAME)
-    if not playlist:
-        sys.exit(1)
-
+def find_or_create_playlist(session, playlist_name):
+    """Searches for a playlist by name. If not found, creates it."""
     try:
-        existing_track_ids = {t.id for t in playlist.tracks()}
-        print(f"Playlist currently contains {len(existing_track_ids)} tracks.")
+        # Retrieve all user playlists
+        user_playlists = session.user.playlists()
+        for p in user_playlists:
+            if p.name == playlist_name:
+                print(f"[OK] Playlist '{playlist_name}' found.")
+                return p
+        
+        # If the loop finishes, the playlist was not found
+        print(f"[WARN] Playlist '{playlist_name}' not found. Creating it now...")
+        description = "Playlist automatically created with a Python script, see https://github.com/hal9ooo/TidalBot"
+        new_playlist = session.user.create_playlist(playlist_name, description)
+        print(f"[OK] Playlist '{playlist_name}' created successfully.")
+        return new_playlist
+
     except Exception as e:
-        print(f"❌ ERROR: Could not retrieve tracks from playlist: {e}")
-        sys.exit(1)
+        print(f"❌ Error managing the playlist: {e}")
+        return None
+
+def process_songs_with_progress(session, playlist_target, songs_to_add, existing_track_ids):
+    """Processes songs with a progress bar and statistics."""
+    stats = {
+        'added': 0,
+        'duplicate': 0,
+        'not_found': 0,
+        'errors': 0
+    }
     
-    print("-" * 40)
+    low_similarity_warnings = [] # To store details of songs with low similarity
+    not_found_warnings = [] # To store details of songs not found
 
-    stats = {'added': 0, 'duplicate': 0, 'not_found': 0, 'errors': 0}
-    warnings = {'low_similarity': [], 'not_found': []}
-
-    with tqdm(total=len(SONG_LIST), desc="Processing songs") as pbar:
-        for song_query in SONG_LIST:
-            if not song_query.strip():
+    with tqdm(total=len(songs_to_add), desc="Processing songs") as pbar:
+        for song_line in songs_to_add:
+            search_query = song_line.strip()
+            if not search_query:
                 pbar.update(1)
                 continue
             
-            pbar.set_postfix_str(f"Searching: {song_query[:30]}...")
-            process_song(session, song_query.strip(), playlist, existing_track_ids, stats, warnings)
-            pbar.update(1)
-            time.sleep(1) # Be respectful to the API
+            pbar.set_postfix_str(f"Searching: {search_query[:30]}...")
+            
+            found_tracks, best_similarity, top_candidates = intelligent_search(session, search_query)
 
-    print_summary(stats, warnings)
-    print("\n[OK] Operation completed.")
+            if DEBUG_MODE and top_candidates:
+                print("\nDEBUG: Top Search Candidates:")
+                for i, candidate in enumerate(top_candidates):
+                    print(f"  {i+1}. Artist: {candidate['artist']}, Title: {candidate['title']}, Album: {candidate['album']}, Year: {candidate['year']}, Similarity: {candidate['similarity']:.2f}")
+                print("-" * 30)
+
+            if found_tracks:
+                found_track = found_tracks[0]
+                full_title = get_full_track_title(session, found_track) # Pass session here
+                
+                # Define a threshold for "good enough" similarity
+                SIMILARITY_THRESHOLD = 0.75 # Adjust as needed
+
+                if best_similarity < SIMILARITY_THRESHOLD:
+                    print(f"⚠️ LOW SIMILARITY: Found '{full_title}' with similarity {best_similarity:.2f} for query '{search_query}'. Consider reviewing.\n")
+                    # Get detailed info for the found track to store in the warning
+                    found_artist_name = found_track.artist.name if hasattr(found_track.artist, 'name') else "Unknown Artist"
+                    found_album_title = found_track.album.name if hasattr(found_track, 'album') and hasattr(found_track.album, 'name') else "Unknown Album"
+                    found_release_year = found_track.album.release_date.year if hasattr(found_track, 'album') and hasattr(found_track.album, 'release_date') else "Unknown Year"
+                    found_track_title = found_track.name if hasattr(found_track, 'name') else f"Track ID: {found_track.id}"
+
+                    low_similarity_warnings.append({
+                        'query': search_query,
+                        'found_title': full_title, # Keep full_title for the warning message print
+                        'found_artist': found_artist_name,
+                        'found_track_title': found_track_title,
+                        'found_album': found_album_title,
+                        'found_year': found_release_year,
+                        'similarity': best_similarity,
+                        'candidates': top_candidates
+                    })
+
+                if found_track.id in existing_track_ids:
+                    print(f"[SKIP] ALREADY IN PLAYLIST: '{full_title}' is already in the playlist.\n")
+                    stats['duplicate'] += 1
+                else:
+                    try:
+                        playlist_target.add([found_track.id])
+                        existing_track_ids.add(found_track.id)
+                        print(f"[ADD] ADDED: '{full_title}' to playlist '{PLAYLIST_NAME}'.\n")
+                        stats['added'] += 1
+                    except Exception as e:
+                        print(f"[ERR] ADDITION ERROR: Could not add '{full_title}'. Error: {e}\n")
+                        stats['errors'] += 1
+            else:
+                print(f"[ERR] NOT FOUND: No song found for '{search_query}'.\n")
+                stats['not_found'] += 1
+                not_found_warnings.append(search_query)
+             
+            pbar.update(1)
+            time.sleep(1)
+    
+    print(f"""
+--- Final Statistics ---
+   ADDED: {stats['added']}
+   DUPLICATE: {stats['duplicate']}
+   NOT FOUND: {stats['not_found']}
+   ERRORS: {stats['errors']}
+     """)
+
+    # Print summary of low similarity warnings
+    if low_similarity_warnings:
+        print("\n--- Summary of Low Similarity Warnings ---")
+        for warning in low_similarity_warnings:
+            print(f"\nQuery: '{warning['query']}'")
+            print(f"Found: '{warning['found_title']}' with similarity {warning['similarity']:.2f}")
+            print("Top Search Candidates:")
+            for i, candidate in enumerate(warning['candidates']):
+                # Compare candidate details with found track details for the arrow
+                is_found_candidate = (
+                    candidate['artist'] == warning['found_artist'] and
+                    candidate['title'] == warning['found_track_title'] and
+                    candidate['album'] == warning['found_album'] and
+                    candidate['year'] == warning['found_year']
+                )
+                prefix = "->" if is_found_candidate else "  "
+                print(f"{prefix} {i+1}. Artist: {candidate['artist']}, Title: {candidate['title']}, Album: {candidate['album']}, Year: {candidate['year']}, Similarity: {candidate['similarity']:.2f}")
+
+    # Print summary of not found songs
+    if not_found_warnings:
+        print("\n--- Summary of Not Found Songs ---")
+        for i, query in enumerate(not_found_warnings):
+            print(f"{i+1}. [ERR] NOT FOUND: No song found for '{query}'.")
+
+def main():
+    """Main function of the script."""
+    # Clear the search cache at the start of each run
+    search_cache.clear()
+
+    # --- 2. AUTHENTICATION ---
+    # Initialize Tidal session
+    session = tidalapi.Session()
+    
+    session_file = 'tidal_session.json'
+    try:
+        if os.path.exists(session_file):
+            # Load existing session
+            token_data = load_session(session_file)
+            success = session.load_oauth_session(
+                token_data['token_type'],
+                token_data['access_token'],
+                token_data['refresh_token'],
+                token_data['expiry_time']
+            )
+            
+            if success:
+                print("[OK] Tidal session loaded successfully.")
+            else:
+                print("[WARN] Session expired, new authentication required...")
+                raise Exception("Session expired")
+        else:
+            raise FileNotFoundError("No session file found")
+            
+    except (FileNotFoundError, Exception):
+        print("--- Starting authentication process ---")
+        # Perform simple OAuth login
+        session.login_oauth_simple()
+        
+        # Save the new session
+        save_session(session, session_file)
+        print("[OK] Authentication completed and session saved.")
+    
+    # Verify successful login
+    if not session.check_login():
+        print("[ERR] Login failed")
+        return
+        
+    print("-" * 40)
+    # Display logged-in user information
+    try:
+        if hasattr(session.user, 'username') and session.user.username:
+            print(f"Logged in as: {session.user.username}")
+        else:
+            print(f"Logged in as user ID: {session.user.id}")
+    except Exception as e:
+        print(f"Logged in successfully (ID: {session.user.id})")
+    print("-" * 40)
+
+    # --- 3. PLAYLIST AND SONG MANAGEMENT ---
+    # Find or create the target playlist
+    playlist_target = find_or_create_playlist(session, PLAYLIST_NAME)
+    if not playlist_target:
+        return # Exit if playlist could not be found or created
+
+    # Get IDs of all tracks already in the playlist for quick checking
+    try:
+        existing_tracks = playlist_target.tracks()
+        # Use a 'set' for super fast duplicate checks
+        existing_track_ids = {t.id for t in existing_tracks}
+        print(f"The playlist already contains {len(existing_track_ids)} tracks.")
+        print("-" * 40)
+    except Exception as e:
+        print(f"❌ Error retrieving tracks from the playlist: {e}")
+        return
+
+    # Process the list of songs to add
+    songs_to_add = SONG_LIST
+
+    # Process songs with progress and statistics
+    process_songs_with_progress(session, playlist_target, songs_to_add, existing_track_ids)
+
+    print("[OK] Operation completed.")
 
 if __name__ == "__main__":
     main()

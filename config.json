@@ -1,9 +1,10 @@
 {
   "DEBUG_MODE": false,
-  "TIDAL_SEARCH_LIMIT": 3,
+  "TIDAL_SEARCH_LIMIT": 5,
   "DEBUG_CANDIDATE_LIMIT": 3,
-  "NOME_PLAYLIST": "Chill Deep House Summer Mix – Boat Edition by Paxtone 🚤",
-  "LISTA_CANZONI": [
+  "SIMILARITY_THRESHOLD": 0.75,
+  "PLAYLIST_NAME": "Chill Deep House Summer Mix – Boat Edition by Paxtone 🚤",
+  "SONG_LIST": [
     "Alkemie – Burning Sun (Extended Mix)",
     "Renga Weh – Pearls",
     "Hessian – Believe",

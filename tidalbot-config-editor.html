@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TidalBot Config Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .header p {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .music-icon {
+            width: 2rem;
+            height: 2rem;
+            color: var(--accent);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow);
+        }
+
+        .btn:hover {
+            background: var(--bg-secondary);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        .file-input {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-input input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .tab-list {
+            display: flex;
+            background: var(--bg-secondary);
+            border-radius: 0.5rem;
+            padding: 0.25rem;
+            box-shadow: var(--shadow);
+        }
+
+        .tab-trigger {
+            padding: 0.5rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-trigger.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            box-shadow: var(--shadow);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background: var(--bg-primary);
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-description {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .card-content {
+            padding: 1.5rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .label {
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .input {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: border-color 0.2s ease;
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .input.error {
+            border-color: var(--error);
+        }
+
+        .textarea {
+            min-height: 200px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .error-message {
+            color: var(--error);
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .help-text {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 3rem;
+            height: 1.5rem;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border);
+            transition: 0.3s;
+            border-radius: 1.5rem;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 1.125rem;
+            width: 1.125rem;
+            left: 0.1875rem;
+            bottom: 0.1875rem;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(1.5rem);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .badge-secondary {
+            background: rgba(100, 116, 139, 0.1);
+            color: var(--text-muted);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            margin-top: 1rem;
+        }
+
+        .alert-description {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .json-preview {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .toast {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            max-width: 400px;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.error {
+            border-color: var(--error);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        .toast-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .toast-description {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <svg class="music-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+                </svg>
+                TidalBot Config Editor
+            </h1>
+            <p>Create and edit configuration files for TidalBot - the automated Tidal playlist creator</p>
+        </div>
+
+        <div class="actions">
+            <button class="btn" onclick="loadExample()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
+                </svg>
+                Load Example
+            </button>
+            <button class="btn" onclick="resetToDefault()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                </svg>
+                Reset to Default
+            </button>
+            <label class="btn file-input">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                </svg>
+                Upload Config
+                <input type="file" accept=".json" onchange="handleFileUpload(event)">
+            </label>
+            <button class="btn btn-primary" onclick="downloadConfig()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                </svg>
+                Download Config
+            </button>
+            <button class="btn" onclick="copyToClipboard()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                    <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                </svg>
+                Copy JSON
+            </button>
+        </div>
+
+        <div class="tabs">
+            <div class="tab-list">
+                <button class="tab-trigger active" onclick="switchTab('editor')">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                        <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+                    </svg>
+                    Editor
+                </button>
+                <button class="tab-trigger" onclick="switchTab('preview')">JSON Preview</button>
+            </div>
+        </div>
+
+        <div id="editor-tab" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                            <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+                        </svg>
+                        Basic Settings
+                    </h2>
+                    <p class="card-description">Configure the basic parameters for TidalBot operation</p>
+                </div>
+                <div class="card-content">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="label" for="playlist-name">Playlist Name</label>
+                            <input type="text" id="playlist-name" class="input" placeholder="Enter playlist name">
+                            <div class="error-message" id="playlist-name-error"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="label" for="debug-mode">
+                                Debug Mode
+                                <span class="badge badge-secondary" id="debug-mode-badge">Disabled</span>
+                            </label>
+                            <label class="switch">
+                                <input type="checkbox" id="debug-mode">
+                                <span class="slider"></span>
+                            </label>
+                            <p class="help-text">Enable detailed debug output during search process</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="label" for="search-limit">Tidal Search Limit</label>
+                            <input type="number" id="search-limit" class="input" min="1" max="50" value="5">
+                            <div class="error-message" id="search-limit-error"></div>
+                            <p class="help-text">Maximum tracks to retrieve from Tidal API per search strategy</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="label" for="debug-candidate-limit">Debug Candidate Limit</label>
+                            <input type="number" id="debug-candidate-limit" class="input" min="1" max="20" value="3">
+                            <div class="error-message" id="debug-candidate-limit-error"></div>
+                            <p class="help-text">Number of top candidates to display in debug output</p>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label class="label" for="similarity-threshold">Similarity Threshold</label>
+                            <input type="number" id="similarity-threshold" class="input" min="0" max="1" step="0.01" value="0.75">
+                            <div class="error-message" id="similarity-threshold-error"></div>
+                            <p class="help-text">Minimum similarity score (0-1) to flag potential low-confidence matches</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8z"/>
+                            <path d="M8 4.5a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3a.5.5 0 0 1 .5-.5z"/>
+                        </svg>
+                        Song List
+                    </h2>
+                    <p class="card-description">Add songs to your playlist. One song per line in format "Artist - Song Title"</p>
+                </div>
+                <div class="card-content">
+                    <div class="form-group">
+                        <label class="label" for="song-list">Songs (<span id="song-count">0</span>)</label>
+                        <textarea id="song-list" class="input textarea" placeholder="Artist - Song Title&#10;Another Artist - Another Song"></textarea>
+                        <div class="error-message" id="song-list-error"></div>
+                    </div>
+                    
+                    <div class="alert">
+                        <div class="alert-description">
+                            <strong>Tip:</strong> Use the format "Artist - Song Title" for best results. The intelligent search algorithm will handle variations in formatting.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="preview-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">JSON Preview</h2>
+                    <p class="card-description">Preview your configuration as JSON. This is what will be saved to the config file.</p>
+                </div>
+                <div class="card-content">
+                    <div class="json-preview" id="json-preview">{}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">
+        <div class="toast-title" id="toast-title"></div>
+        <div class="toast-description" id="toast-description"></div>
+    </div>
+
+    <script>
+        // Configuration
+        const defaultConfig = {
+            DEBUG_MODE: false,
+            TIDAL_SEARCH_LIMIT: 5,
+            DEBUG_CANDIDATE_LIMIT: 3,
+            SIMILARITY_THRESHOLD: 0.75,
+            PLAYLIST_NAME: 'My Awesome Playlist',
+            SONG_LIST: [
+                'Artist - Song Title',
+                'Another Artist - Another Song'
+            ]
+        };
+
+        const exampleConfig = {
+            DEBUG_MODE: false,
+            TIDAL_SEARCH_LIMIT: 5,
+            DEBUG_CANDIDATE_LIMIT: 3,
+            SIMILARITY_THRESHOLD: 0.75,
+            PLAYLIST_NAME: 'Chill Deep House Summer Mix – Boat Edition by Paxtone 🚤',
+            SONG_LIST: [
+                'Alkemie – Burning Sun (Extended Mix)',
+                'Renga Weh – Pearls',
+                'Hessian – Believe',
+                'Gorge, Greater Than Us feat. DÉ SAINT. – Wasted Time (Gorge Extended Remix)',
+                'Samm (BE) – Imagine',
+                'Sultan + Shepard – The Way',
+                'TWO LANES – Never Enough (Nils Hoffmann Remix)',
+                '&Me, Rampa, Adam Port, Keinemusik feat. Cubicolor – Before The Flood (Ankhoï Remix)',
+                '&friends, JOSEPH (CH), Brent Faiyaz – Jackie B',
+                'Nora En Pure – Come With Me (Original Mix)'
+            ]
+        };
+
+        let currentConfig = { ...defaultConfig };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadConfigToForm(currentConfig);
+            updateJsonPreview();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // Form inputs
+            document.getElementById('playlist-name').addEventListener('input', updateFromForm);
+            document.getElementById('debug-mode').addEventListener('change', updateFromForm);
+            document.getElementById('search-limit').addEventListener('input', updateFromForm);
+            document.getElementById('debug-candidate-limit').addEventListener('input', updateFromForm);
+            document.getElementById('similarity-threshold').addEventListener('input', updateFromForm);
+            document.getElementById('song-list').addEventListener('input', updateFromForm);
+        }
+
+        function loadConfigToForm(config) {
+            document.getElementById('playlist-name').value = config.PLAYLIST_NAME;
+            document.getElementById('debug-mode').checked = config.DEBUG_MODE;
+            document.getElementById('search-limit').value = config.TIDAL_SEARCH_LIMIT;
+            document.getElementById('debug-candidate-limit').value = config.DEBUG_CANDIDATE_LIMIT;
+            document.getElementById('similarity-threshold').value = config.SIMILARITY_THRESHOLD;
+            document.getElementById('song-list').value = config.SONG_LIST.join('\n');
+            
+            updateDebugModeBadge();
+            updateSongCount();
+        }
+
+        function updateFromForm() {
+            const songs = document.getElementById('song-list').value.split('\n').filter(song => song.trim());
+            
+            currentConfig = {
+                DEBUG_MODE: document.getElementById('debug-mode').checked,
+                TIDAL_SEARCH_LIMIT: parseInt(document.getElementById('search-limit').value) || 1,
+                DEBUG_CANDIDATE_LIMIT: parseInt(document.getElementById('debug-candidate-limit').value) || 1,
+                SIMILARITY_THRESHOLD: parseFloat(document.getElementById('similarity-threshold').value) || 0,
+                PLAYLIST_NAME: document.getElementById('playlist-name').value,
+                SONG_LIST: songs
+            };
+
+            updateDebugModeBadge();
+            updateSongCount();
+            updateJsonPreview();
+            clearErrors();
+        }
+
+        function updateDebugModeBadge() {
+            const badge = document.getElementById('debug-mode-badge');
+            const isChecked = document.getElementById('debug-mode').checked;
+            badge.textContent = isChecked ? 'Enabled' : 'Disabled';
+            badge.className = isChecked ? 'badge badge-success' : 'badge badge-secondary';
+        }
+
+        function updateSongCount() {
+            const songs = document.getElementById('song-list').value.split('\n').filter(song => song.trim());
+            document.getElementById('song-count').textContent = songs.length;
+        }
+
+        function updateJsonPreview() {
+            const preview = document.getElementById('json-preview');
+            preview.textContent = JSON.stringify(currentConfig, null, 2);
+        }
+
+        function validateConfig() {
+            const errors = {};
+            
+            if (!currentConfig.PLAYLIST_NAME.trim()) {
+                errors.PLAYLIST_NAME = 'Playlist name is required';
+            }
+
+            if (currentConfig.TIDAL_SEARCH_LIMIT < 1 || currentConfig.TIDAL_SEARCH_LIMIT > 50) {
+                errors.TIDAL_SEARCH_LIMIT = 'Search limit must be between 1 and 50';
+            }
+
+            if (currentConfig.DEBUG_CANDIDATE_LIMIT < 1 || currentConfig.DEBUG_CANDIDATE_LIMIT > 20) {
+                errors.DEBUG_CANDIDATE_LIMIT = 'Debug candidate limit must be between 1 and 20';
+            }
+
+            if (currentConfig.SIMILARITY_THRESHOLD < 0 || currentConfig.SIMILARITY_THRESHOLD > 1) {
+                errors.SIMILARITY_THRESHOLD = 'Similarity threshold must be between 0 and 1';
+            }
+
+            if (currentConfig.SONG_LIST.length === 0) {
+                errors.SONG_LIST = 'At least one song is required';
+            }
+
+            showErrors(errors);
+            return Object.keys(errors).length === 0;
+        }
+
+        function showErrors(errors) {
+            clearErrors();
+            
+            Object.keys(errors).forEach(field => {
+                const errorElement = document.getElementById(field + '-error');
+                const inputElement = document.getElementById(field.replace('_', '-'));
+                
+                if (errorElement) {
+                    errorElement.textContent = errors[field];
+                }
+                if (inputElement) {
+                    inputElement.classList.add('error');
+                }
+            });
+        }
+
+        function clearErrors() {
+            const errorElements = document.querySelectorAll('.error-message');
+            const inputElements = document.querySelectorAll('.input');
+            
+            errorElements.forEach(el => el.textContent = '');
+            inputElements.forEach(el => el.classList.remove('error'));
+        }
+
+        function switchTab(tabName) {
+            // Update tab triggers
+            document.querySelectorAll('.tab-trigger').forEach(trigger => {
+                trigger.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + '-tab').classList.add('active');
+
+            // Update JSON preview if switching to preview
+            if (tabName === 'preview') {
+                updateJsonPreview();
+            }
+        }
+
+        function loadExample() {
+            currentConfig = { ...exampleConfig };
+            loadConfigToForm(currentConfig);
+            updateJsonPreview();
+            clearErrors();
+            showToast('Example loaded', 'Example configuration has been loaded successfully.');
+        }
+
+        function resetToDefault() {
+            currentConfig = { ...defaultConfig };
+            loadConfigToForm(currentConfig);
+            updateJsonPreview();
+            clearErrors();
+            showToast('Reset to default', 'Configuration has been reset to default values.');
+        }
+
+        function downloadConfig() {
+            if (!validateConfig()) {
+                showToast('Validation Error', 'Please fix the errors before downloading.', true);
+                return;
+            }
+
+            const dataStr = JSON.stringify(currentConfig, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'config.json';
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('Download successful', 'Configuration file has been downloaded.');
+        }
+
+        function copyToClipboard() {
+            if (!validateConfig()) {
+                showToast('Validation Error', 'Please fix the errors before copying.', true);
+                return;
+            }
+
+            const dataStr = JSON.stringify(currentConfig, null, 2);
+            navigator.clipboard.writeText(dataStr).then(() => {
+                showToast('Copied to clipboard', 'Configuration JSON has been copied to clipboard.');
+            }).catch(() => {
+                showToast('Copy failed', 'Failed to copy to clipboard.', true);
+            });
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    const parsedConfig = JSON.parse(content);
+                    
+                    // Validate the structure
+                    if (parsedConfig.DEBUG_MODE !== undefined &&
+                        parsedConfig.TIDAL_SEARCH_LIMIT !== undefined &&
+                        parsedConfig.DEBUG_CANDIDATE_LIMIT !== undefined &&
+                        parsedConfig.SIMILARITY_THRESHOLD !== undefined &&
+                        parsedConfig.PLAYLIST_NAME !== undefined &&
+                        parsedConfig.SONG_LIST !== undefined) {
+                        
+                        currentConfig = parsedConfig;
+                        loadConfigToForm(currentConfig);
+                        updateJsonPreview();
+                        clearErrors();
+                        showToast('File loaded', 'Configuration file has been loaded successfully.');
+                    } else {
+                        throw new Error('Invalid configuration file structure');
+                    }
+                } catch (error) {
+                    showToast('Invalid file', 'The uploaded file is not a valid TidalBot configuration.', true);
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset the input
+            event.target.value = '';
+        }
+
+        function showToast(title, description, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastTitle = document.getElementById('toast-title');
+            const toastDescription = document.getElementById('toast-description');
+            
+            toastTitle.textContent = title;
+            toastDescription.textContent = description;
+            toast.className = 'toast show' + (isError ? ' error' : '');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

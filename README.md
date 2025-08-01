@@ -5,6 +5,7 @@ This Python script automates the process of creating and populating a Tidal play
 ## Features
 
 * **Tidal API Integration**: Authenticates with Tidal using `tidalapi` to manage sessions and interact with user data.
+* **Serverless Web Config Editor**: A user-friendly, browser-based editor (`tidalbot-config-editor.html`) to create and modify your `config.json` file without any manual coding.
 * **Configuration File**: All settings are managed via an external `config.json` file, making it easy to change parameters without editing the script.
 * **Session Management**: Saves and loads Tidal session tokens to avoid repeated logins.
 * **Playlist Management**: Automatically finds an existing playlist by name or creates a new one if it doesn't exist.
@@ -12,33 +13,9 @@ This Python script automates the process of creating and populating a Tidal play
 * **Progress Bar**: Uses `tqdm` to display a progress bar during song processing.
 * **Detailed Statistics**: Provides a summary of added, duplicated, not found, and error tracks at the end of the process.
 
-## Intelligent Search and Fuzzy Matching
-
-The script employs an **Enhanced Intelligent Song Search** algorithm to find the most accurate match for each song query on Tidal. This process involves several steps:
-
-1.  **Multiple Search Strategies**: For each song query (e.g., "Artist - Song Title"), the script generates several variations (strategies) of the query. This includes the original query, removing separators like " - ", inverting the artist and title, removing content within parentheses, and removing common suffixes like "Remix" or "Extended Mix". This helps to increase the chances of finding a match even if the original query format doesn't exactly match Tidal's data.
-2.  **Tidal API Search**: Each generated strategy is used to search the Tidal API. The `TIDAL_SEARCH_LIMIT` variable (configurable in `config.json`) controls how many results are requested from the Tidal API for each individual search strategy. Increasing this limit can potentially find more relevant candidates but will also increase the number of API calls and processing time.
-3.  **Candidate Collection**: All unique tracks found across all search strategies are collected as potential candidates.
-4.  **Similarity Scoring**: For each candidate track, a weighted similarity score is calculated against the original song query. This score uses a combination of `fuzzywuzzy`'s `token_sort_ratio` (which is good for comparing strings with different word orders) and `difflib.SequenceMatcher` (for more precise sequence comparison) on the full artist-title string, as well as individual artist and title components. The weights are currently tuned to prioritize the overall match and title similarity.
-5.  **Ranking**: The collected candidates are ranked based on their calculated similarity scores in descending order.
-6.  **Best Match Selection**: The track with the highest similarity score is selected as the best match.
-7.  **Similarity Threshold**: The `SIMILARITY_THRESHOLD` (default: 0.75) is used to flag potential low-confidence matches. If the best match's similarity score falls below this threshold, a warning is printed to the console, suggesting manual review.
-8.  **Caching**: Search results are cached to speed up processing if the same song query is encountered again.
-
-### Debugging Search Results
-
-To gain insight into the search process and the candidates considered, you can enable `DEBUG_MODE` in your `config.json` file by setting `"DEBUG_MODE": true`. When enabled, the script will print detailed information for each song search, including:
-
-* The original query and the target string used for comparison.
-* Individual similarity scores (full match, title, artist).
-* The final weighted similarity score.
-* A list of the top potential track candidates found across all strategies, ranked by similarity. The number of candidates shown in this debug list is controlled by the `DEBUG_CANDIDATE_LIMIT` variable in `config.json`. This list includes the artist, title, album, year, and similarity score for each candidate.
-
-This debug output is invaluable for understanding why a particular track was matched (or not matched) and for fine-tuning the similarity threshold or search strategies if needed.
-
 ## Setup
 
-1.  **Clone the repository (or download the script):**
+1.  **Clone the repository (or download the files):**
     ```bash
     git clone [https://github.com/your-repo/tidalbot.git](https://github.com/your-repo/tidalbot.git)
     cd tidalbot
@@ -51,27 +28,45 @@ This debug output is invaluable for understanding why a particular track was mat
     ```
 
 3.  **Create the configuration file:**
-    In the same directory as the `tidalbot.py` script, create a file named `config.json`. This is where you will define all the script's settings. See the section below for details.
+    You have two options:
+    * **Recommended**: Use the **Web Config Editor**. Simply open the `tidalbot-config-editor.html` file in your web browser. This provides a user-friendly interface to configure everything and download the `config.json` file.
+    * **Manual**: Create a file named `config.json` yourself. See the manual configuration section for details.
 
-## Configuration (`config.json`)
+## Web-Based Config Editor (Serverless)
 
-The script is controlled by a `config.json` file. Below is an explanation of each available option.
+To make configuration easy and avoid syntax errors, this project includes a serverless web-based editor.
 
-* `DEBUG_MODE`: (boolean) Set to `true` to enable detailed debug output during the search process, which is useful for troubleshooting. Set to `false` to disable.
+**How to use it:**
+
+1.  Open the `tidalbot-config-editor.html` file in any modern web browser (like Chrome, Firefox, or Edge).
+2.  Use the graphical interface to fill in your playlist name, song list, and adjust settings.
+3.  You can:
+    * **Load an existing `config.json`** by clicking "Upload Config".
+    * **Load an example** to see how it works.
+    * **See a live preview** of the JSON output.
+4.  Once you're done, click **"Download Config"**.
+5.  Save the downloaded `config.json` file in the same directory as the `tidalbot.py` script.
+
+!(https://i.imgur.com/gY3v2Yk.png)
+
+## Manual Configuration (`config.json`)
+
+If you prefer to create the configuration file manually, create a file named `config.json` in the script's directory. Below is an explanation of each option.
+
+* `DEBUG_MODE`: (boolean) Set to `true` to enable detailed debug output during the search process. Default is `false`.
 * `TIDAL_SEARCH_LIMIT`: (integer) The maximum number of tracks to retrieve from the Tidal API for each search strategy. A higher number may improve accuracy but increases processing time. Default is `3`.
 * `DEBUG_CANDIDATE_LIMIT`: (integer) The number of top search candidates to display in the debug output when `DEBUG_MODE` is enabled. Default is `3`.
+* `SIMILARITY_THRESHOLD`: (float) The minimum similarity score (from 0.0 to 1.0) to consider a track a match. If the best match's score is below this, a warning is shown. Default is `0.75`.
 * `PLAYLIST_NAME`: (string) The desired name for your Tidal playlist.
 * `SONG_LIST`: (array of strings) A list of the songs you want to add. Each string in the array represents one song, ideally in the format `"Artist - Song Title"`.
 
 **Example `config.json`:**
-
-Create a file named `config.json` with the following content. You can copy and paste this example and then modify it with your playlist name and song list.
-
 ```json
 {
     "DEBUG_MODE": false,
     "TIDAL_SEARCH_LIMIT": 3,
     "DEBUG_CANDIDATE_LIMIT": 3,
+    "SIMILARITY_THRESHOLD": 0.75,
     "PLAYLIST_NAME": "My Awesome Playlist",
     "SONG_LIST": [
         "Pavel Khvaleev - Connect",
@@ -104,6 +99,22 @@ The script will display real-time progress and messages indicating:
 * Song search progress.
 * Whether a song was added, was already present, or not found.
 * Final statistics on the operation.
+
+## Intelligent Search and Fuzzy Matching
+
+The script employs an **Enhanced Intelligent Song Search** algorithm to find the most accurate match for each song query on Tidal. This process involves several steps:
+
+1.  **Multiple Search Strategies**: For each song query, the script generates several variations to increase the chances of finding a match.
+2.  **Tidal API Search**: Each variation is used to search the Tidal API.
+3.  **Candidate Collection**: All unique tracks found are collected as potential candidates.
+4.  **Similarity Scoring**: Each candidate is scored against the original query using a weighted combination of `fuzzywuzzy` and `difflib`.
+5.  **Ranking and Selection**: Candidates are ranked, and the one with the highest score is chosen.
+6.  **Similarity Threshold**: The `SIMILARITY_THRESHOLD` is used to flag potential low-confidence matches.
+7.  **Caching**: Search results are cached to speed up processing.
+
+### Debugging Search Results
+
+To gain insight into the search process, enable `DEBUG_MODE` in your `config.json`. This will print detailed information for each song search, including the similarity scores and a list of the top potential candidates found.
 
 ## Contributing
 

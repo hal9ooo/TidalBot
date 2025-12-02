@@ -7,8 +7,9 @@ This Python script automates the process of creating and populating a Tidal play
 * **Tidal API Integration**: Authenticates with Tidal using `tidalapi` to manage sessions and interact with user data.
 * **Serverless Web Config Editor**: A user-friendly, browser-based editor (`tidalbot-config-editor.html`) to create and modify your `config.json` file without any manual coding.
 * **Configuration File**: All settings are managed via an external `config.json` file, making it easy to change parameters without editing the script.
+* **Raw Tracklist Support**: Can parse raw tracklists (e.g., from 1001tracklists) directly from a text string or an external file (`tracklist.txt`). It automatically cleans timestamps (e.g., `[03:44]`) and extracts the playlist name from the first line.
 * **Session Management**: Saves and loads Tidal session tokens to avoid repeated logins.
-* **Playlist Management**: Automatically finds an existing playlist by name or creates a new one if it doesn't exist.
+* **Playlist Management**: Automatically finds an existing playlist by name or creates a new one if it doesn't exist. If using a raw tracklist, it can automatically set the playlist name from the file header.
 * **Enhanced Intelligent Song Search**: Employs a wider range of strategies (including handling parentheses, common suffixes, and featuring artists), weighted similarity scoring using `difflib.SequenceMatcher` and `fuzzywuzzy` for improved accuracy, and caching for faster repeated searches to find the most relevant tracks on Tidal.
 * **Progress Bar**: Uses `tqdm` to display a progress bar during song processing.
 * **Detailed Statistics**: Provides a summary of added, duplicated, not found, and error tracks at the end of the process.
@@ -57,8 +58,9 @@ If you prefer to create the configuration file manually, create a file named `co
 * `TIDAL_SEARCH_LIMIT`: (integer) The maximum number of tracks to retrieve from the Tidal API for each search strategy. A higher number may improve accuracy but increases processing time. Default is `3`.
 * `DEBUG_CANDIDATE_LIMIT`: (integer) The number of top search candidates to display in the debug output when `DEBUG_MODE` is enabled. Default is `3`.
 * `SIMILARITY_THRESHOLD`: (float) The minimum similarity score (from 0.0 to 1.0) to consider a track a match. If the best match's score is below this, a warning is shown. Default is `0.75`.
-* `PLAYLIST_NAME`: (string) The desired name for your Tidal playlist.
+* `PLAYLIST_NAME`: (string) The desired name for your Tidal playlist. (Optional if using `RAW_TRACKLIST` with a header).
 * `SONG_LIST`: (array of strings) A list of the songs you want to add. Each string in the array represents one song, ideally in the format `"Artist - Song Title"`.
+* `RAW_TRACKLIST`: (string or array) Can be a path to a text file (e.g., `"tracklist.txt"`) OR a raw string containing the tracklist. The script will parse this to extract songs and the playlist name (from the first line).
 
 **Example `config.json`:**
 ```json
@@ -70,12 +72,18 @@ If you prefer to create the configuration file manually, create a file named `co
     "PLAYLIST_NAME": "My Awesome Playlist",
     "SONG_LIST": [
         "Pavel Khvaleev - Connect",
-        "Cherry - Euphoria",
-        "Armina - Mindstorm",
-        "Led Zeppelin - Stairway to Heaven",
-        "Queen - Bohemian Rhapsody"
-    ]
+        "Cherry - Euphoria"
+    ],
+    "RAW_TRACKLIST": "tracklist.txt"
 }
+```
+
+**Example `tracklist.txt`:**
+```text
+My Event Playlist Name 2025
+
+[00:00] Artist A - Song Title [Label]
+[03:44] Artist B - Another Song
 ```
 
 ## Usage
@@ -104,7 +112,7 @@ The script will display real-time progress and messages indicating:
 
 The script employs an **Enhanced Intelligent Song Search** algorithm to find the most accurate match for each song query on Tidal. This process involves several steps:
 
-1.  **Multiple Search Strategies**: For each song query, the script generates several variations to increase the chances of finding a match.
+1.  **Multiple Search Strategies**: For each song query, the script generates several variations to increase the chances of finding a match. It now includes specific cleaning for raw tracklists (removing timestamps like `[00:00]` and track numbers).
 2.  **Tidal API Search**: Each variation is used to search the Tidal API.
 3.  **Candidate Collection**: All unique tracks found are collected as potential candidates.
 4.  **Similarity Scoring**: Each candidate is scored against the original query using a weighted combination of `fuzzywuzzy` and `difflib`.

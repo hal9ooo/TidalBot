@@ -1,0 +1,4 @@
+tidalapi
+tqdm
+fuzzywuzzy
+python-Levenshtein

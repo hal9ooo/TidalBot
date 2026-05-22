@@ -214,7 +214,10 @@ class TidalBot:
             return f"{artist_name} - {track.name}"
         except Exception as e:
             logging.debug(f"Error getting full track title: {e}")
-            return f"{track.name if hasattr(track, 'name') else f'Track ID: {track.id if hasattr(track, 'id') else 'N/A'}'}"
+            if hasattr(track, 'name'):
+                return track.name
+            track_id = track.id if hasattr(track, 'id') else 'N/A'
+            return f"Track ID: {track_id}"
 
     def calculate_similarity_score(self, query: str, track_title: str, track_artist: str) -> float:
         """Calculates a weighted similarity score for a track."""

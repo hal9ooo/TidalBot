@@ -11,3 +11,5 @@
 /tidal-dl.code-workspace
 /tidal_session.json
 /lib64
+# Local code-graph index (never commit)
+.tokensave/

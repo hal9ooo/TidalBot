@@ -22,10 +22,12 @@ models:
     thinking: high
 checks:
   setup:
-  - 'true'
+  - if [ -x .venv/bin/python ] && .venv/bin/python -c 'import sys; raise SystemExit(0
+    if sys.version_info[:2] == (3, 11) else 1)'; then :; else uv venv --python 3.11
+    --clear .venv; fi
+  - uv pip install --python .venv/bin/python -r requirements.txt
   test:
-  - 'python -c "raise SystemExit(''No isolated automated test suite: onboarding blocked;
-    see CI-safe backlog'')"'
+  - python -m unittest discover -s tests -q
 runtimes:
   python: '3.11'
   node: '20'

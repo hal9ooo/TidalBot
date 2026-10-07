@@ -39,9 +39,9 @@ jobs:
       - name: Use repository venv
         run: echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
         working-directory: .
-      - run: 'true'
+      - run: |
+          uv venv --python 3.11 .venv
+          uv pip install --python .venv/bin/python -r requirements.txt
         working-directory: .
-
-
-      - run: 'python -c "raise SystemExit(''No isolated automated test suite: onboarding blocked; see CI-safe backlog'')"'
+      - run: python -m unittest discover -s tests -q
         working-directory: .

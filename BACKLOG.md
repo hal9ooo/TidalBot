@@ -31,4 +31,8 @@ prova da fare a mano.
 
 ## Minore
 
+### Repository
+
+- Togliere dal versionamento i bytecode `__pycache__/*.pyc` (ne sono committati per Python 3.11 e 3.13) e aggiungere `__pycache__/` al `.gitignore`: ogni esecuzione di script o test sporca il diff. (S) (ricognizione del 16/11)
+
 ## Da valutare
